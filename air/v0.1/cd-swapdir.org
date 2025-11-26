@@ -1,0 +1,475 @@
+#+title: cd like utility for swapping a part of directory
+#+state: draft
+#+FILETAGS: :zig:cli:shell:
+
+* Summary
+
+A cross-shell utility called ~swapdir~ that enables swapping a portion of the
+current working directory path with a replacement string, similar to ksh/zsh's
+~cd old new~ functionality. The tool is implemented in Zig for performance and
+portability, with shell integration scripts for bash, zsh, fish, and nushell.
+
+Example:
+#+begin_example
+/tmp/a/b/c --> swapdir a d --> /tmp/d/b/c
+#+end_example
+
+* Motivation
+
+Ksh and zsh support a two-argument form of ~cd~ that replaces a substring in
+the current path. However:
+
+1. Bash does not support this natively
+2. Fish shell does not support this natively
+3. Nushell does not support this natively
+4. Users switching between shells lose this productivity feature
+
+A dedicated tool provides consistent behavior across all shells and can offer
+enhanced features like intelligent completion and multiple occurrence handling.
+
+** Goals
+
+1. Provide a ~swapdir~ command that swaps path components reliably
+2. Support all major shells: bash, zsh, fish, nushell, and POSIX sh
+3. Provide shell-specific auto-completion for both arguments
+4. Handle edge cases gracefully (no match, multiple matches, etc.)
+5. Single static binary with no runtime dependencies
+6. Fast execution suitable for interactive shell use
+
+** Non-Goals
+
+1. Full ~cd~ replacement (e.g., ~-~ for previous directory)
+2. Directory history/bookmarking features
+3. Fuzzy matching or approximate string matching
+4. GUI or TUI interface
+5. Integration with file managers
+
+* Proposal
+
+** Architecture Overview
+
+The solution consists of two components:
+
+1. *Zig Binary (~swapdir~)*: Core logic that computes the new path
+2. *Shell Integration Scripts*: Per-shell functions and completions
+
+#+begin_src
++-------------------+     +------------------+
+|   Shell Function  |---->|   swapdir bin    |
+|   (sd / swapdir)  |     |   (Zig)          |
++-------------------+     +------------------+
+         |                        |
+         |                        v
+         |                 +--------------+
+         |                 | New path or  |
+         |                 | error code   |
+         |                 +--------------+
+         v
++-------------------+
+|   cd <new_path>   |
++-------------------+
+#+end_src
+
+** Command Interface
+
+#+begin_src shell
+# Basic usage: swap OLD with NEW in current path
+swapdir <old> <new>
+
+# Options
+swapdir --help          # Show help
+swapdir --version       # Show version
+swapdir --dry-run       # Print result without shell integration
+swapdir --path <path>   # Use specified path instead of cwd
+swapdir --complete <n>  # Generate completions for argument n (1 or 2)
+#+end_src
+
+** Matching Behavior
+
+*** Substring Matching (like ksh/zsh)
+swapdir performs *substring replacement* within path components, matching the
+behavior of ksh and zsh's ~cd old new~:
+
+#+begin_example
+Path: /home/user/frontend/src
+
+# Substring match within component
+swapdir front back       → /home/user/backend/src
+swapdir end art          → /home/user/frontart/src
+
+# Full component also works
+swapdir frontend backend → /home/user/backend/src
+#+end_example
+
+*** Multiple Occurrence Handling
+When OLD appears multiple times in the path, swapdir uses *smart matching*:
+find whichever replacement results in a valid (existing) path.
+
+#+begin_example
+Path: /home/user/src/project/src/
+
+Case 1: Only one replacement is valid
+$ swapdir src lib
+# If /home/user/lib/project/src/ exists but /home/user/src/project/lib/ doesn't:
+→ /home/user/lib/project/src/
+
+Case 2: Multiple valid replacements exist
+$ swapdir src lib
+# If both paths exist, prompt user:
+Multiple valid paths found:
+  1) /home/user/lib/project/src/
+  2) /home/user/src/project/lib/
+Select [1-2]:
+
+Case 3: No valid replacement exists
+$ swapdir src lib
+→ Error: No valid path found after replacement
+#+end_example
+
+** Shell Integration
+
+Since external binaries cannot change the shell's working directory, shell
+functions wrap the binary:
+
+*** Bash Integration
+#+begin_src bash
+# Function to use swapdir
+sd() {
+    local new_path
+    new_path=$(swapdir "$@")
+    if [[ $? -eq 0 && -n "$new_path" ]]; then
+        cd "$new_path" || return 1
+    else
+        return 1
+    fi
+}
+#+end_src
+
+*** Zsh Integration
+#+begin_src zsh
+# Function to use swapdir (zsh already has cd old new, but this adds completion)
+sd() {
+    local new_path
+    new_path=$(swapdir "$@")
+    if [[ $? -eq 0 && -n "$new_path" ]]; then
+        cd "$new_path" || return 1
+    else
+        return 1
+    fi
+}
+#+end_src
+
+*** Fish Integration
+#+begin_src fish
+function sd
+    set -l new_path (swapdir $argv)
+    if test $status -eq 0 -a -n "$new_path"
+        cd $new_path
+    else
+        return 1
+    end
+end
+#+end_src
+
+*** Nushell Integration
+#+begin_src nu
+# swapdir wrapper for nushell
+def sd [...args] {
+    let new_path = (swapdir ...$args | str trim)
+    if ($new_path | is-not-empty) {
+        cd $new_path
+    }
+}
+#+end_src
+
+** Completion Behavior
+
+*** First Argument Completion
+Shows *exact path component names* from the current directory.
+No partial matching or fuzzy suggestions - just the literal components.
+
+#+begin_example
+$ pwd
+/home/user/projects/frontend/src
+$ sd <TAB>
+home  user  projects  frontend  src
+
+# User types partial and hits TAB - shell's native completion handles it
+$ sd fro<TAB>
+$ sd frontend   (shell completes to 'frontend')
+#+end_example
+
+Note: The swapdir binary outputs exact component names; the shell's native
+completion mechanism handles partial matching (e.g., ~fro~ → ~frontend~).
+
+*** Second Argument Completion
+Context-aware suggestions based on the first argument:
+- Find which component(s) in the path contain the first argument (substring)
+- For each match, determine the parent directory and remaining suffix
+- List sibling directories where the *complete resulting path* would exist
+- Support partial typing for the second argument
+
+#+begin_example
+$ pwd
+/home/user/projects/frontend/src
+
+# First arg "frontend" matches component "frontend"
+# Parent: /home/user/projects/, Suffix: /src
+# Only show siblings that have a /src child directory
+
+$ sd frontend <TAB>
+backend  mobile  ...  (only siblings that contain "src" subdirectory)
+
+# If /home/user/projects/ contains:
+#   frontend/src/  -> excluded (current match)
+#   backend/src/   -> included
+#   shared/        -> excluded (no "src" child)
+#   mobile/src/    -> included
+
+# Partial typing for second argument also works:
+$ sd frontend ba<TAB>
+$ sd frontend backend
+#+end_example
+
+*** Substring Match Completion
+When the first argument is a substring (not full component), completion
+finds all valid replacements:
+
+#+begin_example
+$ pwd
+/home/user/projects/frontend/src
+
+# "front" is a substring of "frontend"
+$ sd front <TAB>
+back  ...  (suggests substrings that would create valid paths)
+
+# This would result in: /home/user/projects/backend/src
+#+end_example
+
+* Design Details
+
+** Zig Implementation
+
+*** Project Structure
+#+begin_example
+swapdir/
+├── src/
+│   ├── main.zig           # Entry point, argument parsing
+│   ├── path.zig           # Path manipulation logic
+│   ├── completion.zig     # Completion generation
+│   └── lib.zig            # Public library interface
+├── shell/
+│   ├── swapdir.bash       # Bash integration + completions
+│   ├── swapdir.zsh        # Zsh integration + completions
+│   ├── swapdir.fish       # Fish integration + completions
+│   ├── swapdir.nu         # Nushell integration + completions
+│   └── swapdir.sh         # POSIX sh (no completion)
+├── build.zig              # Zig build configuration
+└── tests/
+    └── path_test.zig      # Unit tests
+#+end_example
+
+*** Core Algorithm
+#+begin_src zig
+/// Swaps occurrences of `old` with `new` in `path` using substring matching.
+/// Uses smart matching: finds valid paths, prompts if multiple exist.
+pub fn swapPath(
+    allocator: Allocator,
+    path: []const u8,
+    old: []const u8,
+    new: []const u8,
+    options: SwapOptions,
+) !SwapResult {
+    // 1. Find all positions where `old` substring appears in path
+    // 2. For each position, generate candidate path with replacement
+    // 3. Check which candidate paths actually exist on filesystem
+    // 4. Return based on number of valid candidates:
+    //    - 0 valid: return error
+    //    - 1 valid: return that path
+    //    - N valid: return all for user selection
+}
+
+pub const SwapOptions = struct {
+    validate_exists: bool = true,  // Check if result path exists
+    dry_run: bool = false,         // Don't validate, just compute
+};
+
+pub const SwapResult = union(enum) {
+    single: []const u8,            // One valid path found
+    multiple: [][]const u8,        // Multiple valid paths, user must choose
+    none: void,                    // No valid replacement found
+};
+#+end_src
+
+*** Error Handling
+The binary uses distinct exit codes:
+| Code | Meaning                                        |
+|------+------------------------------------------------|
+|    0 | Success, prints new path to stdout             |
+|    1 | No match found for OLD substring               |
+|    2 | No valid path exists after replacement         |
+|    3 | Invalid arguments                              |
+|    4 | Multiple valid paths (prints options, needs selection) |
+|    5 | Other error                                    |
+
+When exit code is 4 (multiple paths), the binary outputs the options in a
+format the shell wrapper can parse and present to the user for selection.
+
+** Test Plan
+
+*** Unit Tests (Zig)
+- Substring finding in path
+- Single occurrence replacement
+- Multiple occurrence handling (smart matching)
+- Path existence validation
+- Edge cases: empty string, root path, trailing slashes
+- Unicode path handling
+- Completion generation for first argument
+- Completion generation for second argument (with suffix validation)
+
+*** Integration Tests
+- Shell function integration for bash, zsh, fish, nushell
+- Completion accuracy
+- Error handling in shell context
+
+*** Manual Testing Matrix
+| Shell   | Basic swap | Completion | Error handling |
+|---------+------------+------------+----------------|
+| bash    | [ ]        | [ ]        | [ ]            |
+| zsh     | [ ]        | [ ]        | [ ]            |
+| fish    | [ ]        | [ ]        | [ ]            |
+| nushell | [ ]        | [ ]        | [ ]            |
+| sh      | [ ]        | N/A        | [ ]            |
+
+** Graduation Criteria
+
+*** Alpha (v0.1)
+- Basic swap functionality with substring matching
+- Smart multiple-occurrence handling
+- Bash integration script
+- Manual installation instructions
+- Core unit tests passing
+
+*** Beta (v0.2)
+- Zsh, Fish, and Nushell integration
+- Completion for all supported shells
+- Interactive selection for multiple valid paths
+- Automated tests passing (>80% coverage)
+
+*** GA (v1.0)
+- Documentation complete
+- Performance benchmarked (<10ms typical operation)
+- Package available via common methods (Nix, Homebrew)
+- All shell integrations tested on CI
+
+** Upgrade / Downgrade Strategy
+
+The tool is stateless with no configuration files. Upgrade by replacing the
+binary. Shell integration scripts should be sourced from a versioned location.
+
+** Version Skew Strategy
+
+Not applicable - single binary with shell scripts. Users should keep shell
+scripts and binary from the same version.
+
+* Production Readiness Review Questionnaire
+
+** Feature Enablement and Rollback
+
+- *Enable*: Add ~source /path/to/swapdir.{bash,zsh,fish}~ to shell rc file
+  (or ~source /path/to/swapdir.nu~ for Nushell)
+- *Disable*: Remove the source line, optionally remove binary
+- No system-wide impact; user-local configuration only
+
+** Rollout, Upgrade and Rollback Planning
+
+- Distributed as static binary + shell scripts
+- No migration needed between versions
+- Rollback: replace with previous version binary
+
+** Monitoring Requirements
+
+Not applicable for CLI tool. Optional: shell integration can log usage for
+personal analytics if desired.
+
+** Dependencies
+
+*** Build-time
+- Zig compiler (0.14+, targeting 0.16)
+
+*** Runtime
+- None (static binary)
+
+*** Shell Integration (Minimum Supported)
+- bash 5.0+ (current: 5.3)
+- zsh 5.8+ (current: 5.9/5.10)
+- fish 3.6+ (current: 4.2.1)
+- nushell 0.90+ (current: 0.108.0)
+
+** Scalability
+
+Single invocation tool, no scalability concerns. Performance target: <10ms for
+typical operations.
+
+** Troubleshooting
+
+*** "No match found"
+Verify the OLD string exists in the current path (exact match required).
+
+*** "Path does not exist"
+The computed path doesn't exist on the filesystem. Use ~--dry-run~ to see what
+path would be computed.
+
+*** Completions not working
+Ensure shell integration script is sourced. Check ~type sd~ (bash/zsh),
+~functions sd~ (fish), or ~help sd~ (nushell) to verify function is defined.
+
+* Implementation History
+
+| Date       | Milestone         | Notes                    |
+|------------+-------------------+--------------------------|
+| 2024-11-26 | AIR document      | Initial design draft     |
+
+* Drawbacks
+
+1. *Additional tool*: Users must install another binary
+2. *Shell config changes*: Requires modifying shell rc files
+3. *Learning curve*: New command to remember (mitigated by ~sd~ alias)
+
+* Alternatives
+
+** Pure Shell Functions
+Could implement entirely in shell script. Rejected because:
+- Performance worse for complex paths
+- Each shell needs separate implementation
+- Completion logic duplicated
+
+** Rust Implementation
+Viable alternative. Zig chosen for:
+- Smaller binary size
+- Faster compilation
+- Learning opportunity
+- No runtime dependencies (same as Rust)
+
+** Extend existing tools
+Tools like ~zoxide~ or ~autojump~ solve different problems (directory jumping
+based on history). This tool solves path component substitution.
+
+* Infrastructure Needed
+
+- CI for building releases (GitHub Actions)
+- Release binaries for: Linux (x86_64, aarch64), macOS (x86_64, aarch64)
+- Optional: Nix flake for installation
+
+* History
+
+| Date       | Action                           |
+|------------+----------------------------------|
+| 2024-11-26 | Created initial AIR document     |
+
+* References
+
+- ksh cd documentation: https://www.ibm.com/docs/en/aix/7.2?topic=c-cd-command
+- zsh cd documentation: https://zsh.sourceforge.io/Doc/Release/Shell-Builtin-Commands.html
+- Zig language reference: https://ziglang.org/documentation/master/
+

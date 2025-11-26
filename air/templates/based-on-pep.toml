@@ -1,0 +1,55 @@
+name = "based-on-pep"
+description = "Python Enhancement Proposal format"
+format = "org"
+
+[[sections]]
+title = "Abstract"
+description = "Short (~200 word) description of the technical issue being addressed."
+
+[[sections]]
+title = "Motivation"
+description = "Why the existing language specification is inadequate."
+
+[[sections]]
+title = "Rationale"
+description = "Why particular design decisions were made."
+
+[[sections]]
+title = "Specification"
+description = "Technical specification of the proposed change."
+
+[[sections]]
+title = "Backwards Compatibility"
+description = "How this proposal affects backwards compatibility."
+
+[[sections]]
+title = "Security Implications"
+description = "Security considerations of the proposed change."
+
+[[sections]]
+title = "How to Teach This"
+description = "How to explain this to new users."
+
+[[sections]]
+title = "Reference Implementation"
+description = "Link to reference implementation if available."
+
+[[sections]]
+title = "Rejected Ideas"
+description = "Ideas that were considered but rejected."
+
+[[sections]]
+title = "Open Issues"
+description = "Questions and issues that remain unresolved."
+
+[[sections]]
+title = "Copyright"
+description = "This document is placed in the public domain or under CC0-1.0-Universal license."
+
+[[sections]]
+title = "History"
+description = "Used by Air: Description of actions taken"
+
+[[sections]]
+title = "References"
+description = "Used by Air: Any references to/from"

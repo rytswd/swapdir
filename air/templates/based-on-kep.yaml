@@ -1,0 +1,64 @@
+name: based-on-kep
+description: Kubernetes Enhancement Proposal format
+format: md
+
+sections:
+  - title: Summary
+    description: Brief overview of what this enhancement addresses.
+
+  - title: Motivation
+    description: Why this enhancement is needed and what problems it solves.
+    subsections:
+      - title: Goals
+        description: What we want to achieve with this enhancement.
+      - title: Non-Goals
+        description: What is explicitly out of scope for this enhancement.
+
+  - title: Proposal
+    description: Detailed specification of the proposed solution.
+
+  - title: Design Details
+    description: Technical implementation details.
+    subsections:
+      - title: Test Plan
+        description: How this will be tested.
+      - title: Graduation Criteria
+        description: Criteria for alpha, beta, and GA releases.
+      - title: Upgrade / Downgrade Strategy
+        description: How to handle version transitions.
+      - title: Version Skew Strategy
+        description: How to handle different versions running simultaneously.
+
+  - title: Production Readiness Review Questionnaire
+    description: Questions to ensure production readiness.
+    subsections:
+      - title: Feature Enablement and Rollback
+        description: How to enable and disable the feature.
+      - title: Rollout, Upgrade and Rollback Planning
+        description: Planning for deployment and rollback scenarios.
+      - title: Monitoring Requirements
+        description: Metrics and monitoring needed for the feature.
+      - title: Dependencies
+        description: External dependencies and their impact.
+      - title: Scalability
+        description: How the feature scales with usage.
+      - title: Troubleshooting
+        description: How to diagnose and fix issues.
+
+  - title: Implementation History
+    description: Track of all work done on this enhancement.
+
+  - title: Drawbacks
+    description: Why should we not do this?
+
+  - title: Alternatives
+    description: Other approaches that were considered.
+
+  - title: Infrastructure Needed
+    description: External dependencies or setup requirements.
+
+  - title: History
+    description: "Used by Air: Description of actions taken"
+
+  - title: References
+    description: "Used by Air: Any references to/from"

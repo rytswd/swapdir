@@ -1,0 +1,13 @@
+{
+  description = "swapdir - cross-shell directory path swapping utility";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs?ref=nixos-unstable";
+    blueprint.url = "github:numtide/blueprint";
+    blueprint.inputs.nixpkgs.follows = "nixpkgs";
+    zig-overlay.url = "github:mitchellh/zig-overlay";
+    zig-overlay.inputs.nixpkgs.follows = "nixpkgs";
+  };
+
+  outputs = inputs: inputs.blueprint { inherit inputs; };
+}

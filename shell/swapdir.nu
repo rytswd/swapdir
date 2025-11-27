@@ -4,8 +4,17 @@
 
 # Main function - wraps swapdir binary and executes cd
 def sd [...args: string] {
+    # Handle help and version flags - just pass through to swapdir
+    if ($args | length) >= 1 {
+        let first = ($args | first)
+        if $first in ["-h" "--help" "-v" "--version"] {
+            swapdir ...$args
+            return
+        }
+    }
+
     if ($args | is-empty) {
-        print -e "Usage: sd <old> <new>"
+        swapdir --help
         return
     }
 

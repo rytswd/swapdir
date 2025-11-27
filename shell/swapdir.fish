@@ -4,9 +4,18 @@
 
 # Main function - wraps swapdir binary and executes cd
 function sd
+    # Handle help and version flags - just pass through to swapdir
+    if test (count $argv) -ge 1
+        switch $argv[1]
+            case -h --help -v --version
+                swapdir $argv
+                return $status
+        end
+    end
+
     if test (count $argv) -eq 0
-        echo "Usage: sd <old> <new>" >&2
-        return 1
+        swapdir --help
+        return 0
     end
 
     set -l output (swapdir $argv 2>&1)

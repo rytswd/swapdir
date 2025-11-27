@@ -4,9 +4,17 @@
 
 # Main function - wraps swapdir binary and executes cd
 sd() {
+    # Handle help and version flags - just pass through to swapdir
+    case "${1:-}" in
+        -h|--help|-v|--version)
+            swapdir "$@"
+            return $?
+            ;;
+    esac
+
     if [[ $# -eq 0 ]]; then
-        echo "Usage: sd <old> <new>" >&2
-        return 1
+        swapdir --help
+        return 0
     fi
 
     local output exit_code

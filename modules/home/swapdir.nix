@@ -1,7 +1,8 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, inputs, ... }:
 
 let
   cfg = config.programs.swapdir;
+  defaultPackage = inputs.swapdir.packages.${pkgs.stdenv.hostPlatform.system}.swapdir;
 in
 {
   options.programs.swapdir = {
@@ -9,8 +10,8 @@ in
 
     package = lib.mkOption {
       type = lib.types.package;
-      default = pkgs.swapdir;
-      defaultText = lib.literalExpression "pkgs.swapdir";
+      default = defaultPackage;
+      defaultText = lib.literalExpression "inputs.swapdir.packages.\${pkgs.stdenv.hostPlatform.system}.swapdir";
       description = "The swapdir package to use.";
     };
 

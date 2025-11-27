@@ -47,7 +47,7 @@ in
       source ${cfg.package}/share/swapdir/swapdir.bash
     '';
 
-    programs.zsh.initExtra = lib.mkIf cfg.enableZshIntegration ''
+    programs.zsh.initContent = lib.mkIf cfg.enableZshIntegration ''
       source ${cfg.package}/share/swapdir/swapdir.zsh
     '';
 

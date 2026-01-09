@@ -90,22 +90,23 @@ fn getCwd(allocator: std.mem.Allocator) ![]const u8 {
 pub fn main() !u8 {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
+    var arena = std.heap.ArenaAllocator.init(gpa.allocator());
+    defer arena.deinit();
+    const allocator = arena.allocator();
 
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
 
     const parsed = parseArgs(args);
 
-    const stdout_file = fs.File.stdout();
-    const stderr_file = fs.File.stderr();
     var stdout_buf: [4096]u8 = undefined;
-    var stderr_buf: [4096]u8 = undefined;
-    var stdout_writer = stdout_file.writer(&stdout_buf);
-    var stderr_writer = stderr_file.writer(&stderr_buf);
+    var stdout_writer = fs.File.stdout().writer(&stdout_buf);
     const stdout = &stdout_writer.interface;
-    const stderr = &stderr_writer.interface;
     defer stdout.flush() catch {};
+
+    var stderr_buf: [4096]u8 = undefined;
+    var stderr_writer = fs.File.stderr().writer(&stderr_buf);
+    const stderr = &stderr_writer.interface;
     defer stderr.flush() catch {};
 
     if (parsed.help) {
@@ -123,49 +124,43 @@ pub fn main() !u8 {
         try allocator.dupe(u8, p)
     else
         try getCwd(allocator);
-    defer allocator.free(current_path);
+
 
     // Handle completion mode
     if (parsed.complete) |n| {
         if (n == 1) {
             const components = try completion.getPathComponents(allocator, current_path);
-            defer {
-                for (components) |c| allocator.free(c);
-                allocator.free(components);
-            }
+
             for (components) |c| {
                 try stdout.print("{s}\n", .{c});
             }
             return 0;
         } else if (n == 2) {
             const first_arg = parsed.old orelse {
-                try stderr.writeAll("Error: --complete 2 requires first argument\n");
+                try stderr.print("Error: --complete 2 requires first argument\n", .{});
                 return 3;
             };
             const siblings = try completion.getSiblingCompletions(allocator, current_path, first_arg);
-            defer {
-                for (siblings) |s| allocator.free(s);
-                allocator.free(siblings);
-            }
+
             for (siblings) |s| {
                 try stdout.print("{s}\n", .{s});
             }
             return 0;
         } else {
-            try stderr.writeAll("Error: --complete requires 1 or 2\n");
+            try stderr.print("Error: --complete requires 1 or 2\n", .{});
             return 3;
         }
     }
 
     // Normal swap mode
     const old = parsed.old orelse {
-        try stderr.writeAll("Error: missing <old> argument\n");
+        try stderr.print("Error: missing <old> argument\n", .{});
         try printHelp(stderr);
         return 3;
     };
 
     const new = parsed.new orelse {
-        try stderr.writeAll("Error: missing <new> argument\n");
+        try stderr.print("Error: missing <new> argument\n", .{});
         try printHelp(stderr);
         return 3;
     };
@@ -183,16 +178,16 @@ pub fn main() !u8 {
                 return 2;
             },
             error.EmptySubstring => {
-                try stderr.writeAll("Error: <old> cannot be empty\n");
+                try stderr.print("Error: <old> cannot be empty\n", .{});
                 return 3;
             },
             error.OutOfMemory => {
-                try stderr.writeAll("Error: out of memory\n");
+                try stderr.print("Error: out of memory\n", .{});
                 return 5;
             },
         }
     };
-    defer path_mod.freeResult(allocator, result);
+
 
     switch (result) {
         .single => |new_path| {
@@ -200,7 +195,7 @@ pub fn main() !u8 {
             return 0;
         },
         .multiple => |paths| {
-            try stdout.writeAll("MULTIPLE\n");
+            try stdout.print("MULTIPLE\n", .{});
             for (paths) |p| {
                 try stdout.print("{s}\n", .{p});
             }

@@ -79,13 +79,9 @@ pub fn swapPath(
 
     // Generate candidate paths for each position
     var valid_paths: std.ArrayListUnmanaged([]const u8) = .{};
-    defer {
-        if (valid_paths.items.len > 1) {
-            // Don't free if we're returning multiple - caller owns them
-        } else {
-            for (valid_paths.items) |p| allocator.free(p);
-            valid_paths.deinit(allocator);
-        }
+    errdefer {
+        for (valid_paths.items) |p| allocator.free(p);
+        valid_paths.deinit(allocator);
     }
 
     for (positions) |pos| {

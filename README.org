@@ -1,0 +1,174 @@
+#+TITLE: swapdir
+#+AUTHOR: rytswd
+#+OPTIONS: toc:3 num:nil ^:nil
+
+#+html:<div align="center">
+#+html:<p>Cross-shell directory path swapping utility with smart completions</p>
+#+html:<p>
+#+html:<img src="https://img.shields.io/badge/Nix-Flake-blue?style=flat-square&logo=nixos" alt="Nix Flake">
+#+html:<img src="https://img.shields.io/badge/Language-Zig-orange?style=flat-square&logo=zig" alt="Language">
+#+html:<a href="https://github.com/rytswd/swapdir"><img src="https://img.shields.io/badge/Source-grey?style=flat-square&logo=github" alt="GitHub Source"></a>
+#+html:<img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="MIT License">
+#+html:</p>
+#+html:</div>
+
+-----
+
+** 🌄 Overview
+
+*swapdir* enables swapping a portion of the current working directory path with a replacement string, bringing the powerful ~cd old new~ functionality of ksh/zsh to all major shells (Bash, Fish, Nushell).
+
+#+begin_example
+/tmp/frontend/src/components:
+❯ swapdir frontend backend
+
+/tmp/backend/src/components:
+❯ 
+#+end_example
+
+While Zsh users might know this built-in feature, *swapdir* improves upon it with:
+1. *Cross-shell consistency*: Use the same workflow in Bash, Fish, Nushell, and Zsh.
+2. *Smart completions*: Only suggests valid replacement paths based on your current location.
+3. *Ambiguity handling*: Interactively selects paths if multiple valid swaps exist.
+
+-----
+
+** ✨ Features
+
+- *Cross-Shell* — First-class support for Bash, Zsh, Fish, and Nushell.
+- *Smart Completion* — Tab-complete the "old" part from your current path, and the "new" part from available siblings.
+- *Static Binary* — Written in Zig for high performance and zero runtime dependencies.
+- *Interactive* — Menus for resolving multiple matching paths.
+
+** 🚀 Quick Start
+
+*** 1. Install
+
+**** Using Nix (Flakes)
+
+#+begin_src nix
+{
+  inputs.swapdir.url = "github:rytswd/swapdir";
+
+  outputs = { nixpkgs, swapdir, ... }: {
+    # Add to your system or home-manager packages
+    environment.systemPackages = [ swapdir.packages.x86_64-linux.default ];
+  };
+}
+#+end_src
+
+**** Manual Build (Zig)
+
+Requirements: [[https://ziglang.org/][Zig]] 0.13+
+
+#+begin_src bash
+git clone https://github.com/rytswd/swapdir
+cd swapdir
+zig build -Doptimize=ReleaseSafe
+cp zig-out/bin/swapdir ~/.local/bin/
+#+end_src
+
+*** 2. Setup Shell Integration
+
+To use ~swapdir~ effectively, you need a shell wrapper function (usually aliased as ~sd~) that handles the directory change.
+
+#+html:<details>
+#+html:<summary><strong>Bash</strong></summary>
+
+Add to =~/.bashrc=:
+
+#+begin_src bash
+source <(swapdir --init bash)
+# Or manually source the provided script
+source /path/to/swapdir/shell/swapdir.bash
+#+end_src
+
+#+html:</details>
+
+#+html:<details>
+#+html:<summary><strong>Zsh</strong></summary>
+
+Add to =~/.zshrc=:
+
+#+begin_src zsh
+source <(swapdir --init zsh)
+# Or manually source the provided script
+source /path/to/swapdir/shell/swapdir.zsh
+#+end_src
+
+#+html:</details>
+
+#+html:<details>
+#+html:<summary><strong>Fish</strong></summary>
+
+Add to =~/.config/fish/config.fish=:
+
+#+begin_src fish
+swapdir --init fish | source
+# Or manually source
+source /path/to/swapdir/shell/swapdir.fish
+#+end_src
+
+#+html:</details>
+
+#+html:<details>
+#+html:<summary><strong>Nushell</strong></summary>
+
+Add to your config:
+
+#+begin_src nu
+source /path/to/swapdir/shell/swapdir.nu
+#+end_src
+
+#+html:</details>
+
+
+** 📖 Usage Guide
+
+*** Basic Swapping
+
+Assume you are in:
+=~/work/project-v1/src/libs=
+
+And you want to switch to the "v2" version of the project:
+
+#+begin_src bash
+sd v1 v2
+#+end_src
+
+Result:
+=~/work/project-v2/src/libs=
+
+*** Smart Completion
+
+*swapdir* knows your current path components.
+
+1. Type ~sd~ and press =TAB=. It will suggest parts of your current path (e.g., =work=, =project-v1=, =src=, =libs=).
+2. Select ~project-v1~.
+3. Press =TAB= again. It will look for sibling directories of ~project-v1~ (e.g., ~project-v2~, ~project-old~) and suggest them.
+
+*** Handling Ambiguity
+
+If a swap results in multiple valid paths (e.g., swapping "src" to "test" matches in two places), *swapdir* will prompt you to choose:
+
+#+begin_src text
+Multiple valid paths found:
+  1) /home/user/lib/project/test
+  2) /home/user/src/project/test
+Select [1-2]:
+#+end_src
+
+
+** 🔧 How It Works
+
+*swapdir* follows the [[https://clig.dev/][CLI Guidelines]] philosophy: separate the logic from the shell state.
+
+1. The shell function ~sd~ calls the ~swapdir~ binary.
+2. ~swapdir~ calculates the new path and prints it to stdout.
+3. If successful, the shell function captures the output and runs ~cd~.
+4. If ambiguous, the shell function presents the menu.
+
+
+** License
+
+MIT

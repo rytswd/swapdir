@@ -14,6 +14,8 @@
 
 -----
 
+[[file:assets/demo.gif]]
+
 ** 🌄 Overview
 
 *swapdir* enables swapping a portion of the current working directory path with a replacement string, bringing the powerful ~cd old new~ functionality of ksh/zsh to all major shells (Bash, Fish, Nushell).

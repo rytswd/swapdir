@@ -81,6 +81,6 @@ function __sd_complete_second
 end
 
 # Register completions
-complete -c sd -f
-complete -c sd -n "test (count (commandline -opc)) -eq 1" -a "(__sd_complete_first)"
-complete -c sd -n "test (count (commandline -opc)) -eq 2" -a "(__sd_complete_second)"
+complete -c sd -f --keep-order
+complete -c sd -n "test (count (commandline -opc)) -eq 1" -a "(__sd_complete_first)" --keep-order
+complete -c sd -n "test (count (commandline -opc)) -eq 2" -a "(__sd_complete_second)" --keep-order

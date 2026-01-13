@@ -78,15 +78,29 @@ _sd_completions() {
 
     if [[ $COMP_CWORD -eq 1 ]]; then
         # First argument - path components
-        local completions
-        completions=$(swapdir --complete 1 2>/dev/null)
-        COMPREPLY=($(compgen -W "$completions" -- "$cur"))
+        local -a completions
+        mapfile -t completions < <(swapdir --complete 1 2>/dev/null)
+
+        # Filter completions manually to preserve order
+        COMPREPLY=()
+        for comp in "${completions[@]}"; do
+            if [[ "$comp" == "$cur"* ]]; then
+                COMPREPLY+=("$comp")
+            fi
+        done
     elif [[ $COMP_CWORD -eq 2 ]]; then
         # Second argument - sibling directories based on first arg
         local first_arg="${COMP_WORDS[1]}"
-        local completions
-        completions=$(swapdir --complete 2 "$first_arg" 2>/dev/null)
-        COMPREPLY=($(compgen -W "$completions" -- "$cur"))
+        local -a completions
+        mapfile -t completions < <(swapdir --complete 2 "$first_arg" 2>/dev/null)
+
+        # Filter completions manually to preserve order
+        COMPREPLY=()
+        for comp in "${completions[@]}"; do
+            if [[ "$comp" == "$cur"* ]]; then
+                COMPREPLY+=("$comp")
+            fi
+        done
     fi
 }
 

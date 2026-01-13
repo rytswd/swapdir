@@ -83,13 +83,13 @@ _sd() {
         old)
             local -a completions
             completions=(${(f)"$(swapdir --complete 1 2>/dev/null)"})
-            _describe 'path component' completions
+            _describe -V 'path component' completions
             ;;
         new)
             local first_arg="${words[2]}"
             local -a completions
             completions=(${(f)"$(swapdir --complete 2 "$first_arg" 2>/dev/null)"})
-            _describe 'replacement' completions
+            _describe -V 'replacement' completions
             ;;
     esac
 }

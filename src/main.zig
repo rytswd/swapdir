@@ -1,5 +1,6 @@
 const std = @import("std");
-const fs = std.fs;
+const Allocator = std.mem.Allocator;
+const Io = std.Io;
 const path_mod = @import("path.zig");
 const completion = @import("completion.zig");
 
@@ -48,7 +49,7 @@ fn parseArgs(args: []const []const u8) Args {
     return result;
 }
 
-fn printHelp(writer: anytype) !void {
+fn printHelp(writer: *Io.Writer) !void {
     try writer.writeAll(
         \\swapdir - swap directory path components
         \\
@@ -81,31 +82,25 @@ fn printHelp(writer: anytype) !void {
     );
 }
 
-fn getCwd(allocator: std.mem.Allocator) ![]const u8 {
-    var buf: [fs.max_path_bytes]u8 = undefined;
-    const cwd = try fs.cwd().realpath(".", &buf);
-    return allocator.dupe(u8, cwd);
+fn getCwd(allocator: Allocator, io: Io) ![]const u8 {
+    return try std.process.currentPathAlloc(io, allocator);
 }
 
-pub fn main() !u8 {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    var arena = std.heap.ArenaAllocator.init(gpa.allocator());
-    defer arena.deinit();
-    const allocator = arena.allocator();
+pub fn main(init: std.process.Init) !u8 {
+    const allocator = init.arena.allocator();
+    const io = init.io;
 
-    const args = try std.process.argsAlloc(allocator);
-    defer std.process.argsFree(allocator, args);
+    const args = try init.minimal.args.toSlice(allocator);
 
     const parsed = parseArgs(args);
 
     var stdout_buf: [4096]u8 = undefined;
-    var stdout_writer = fs.File.stdout().writer(&stdout_buf);
+    var stdout_writer = Io.File.stdout().writer(io, &stdout_buf);
     const stdout = &stdout_writer.interface;
     defer stdout.flush() catch {};
 
     var stderr_buf: [4096]u8 = undefined;
-    var stderr_writer = fs.File.stderr().writer(&stderr_buf);
+    var stderr_writer = Io.File.stderr().writer(io, &stderr_buf);
     const stderr = &stderr_writer.interface;
     defer stderr.flush() catch {};
 
@@ -123,7 +118,7 @@ pub fn main() !u8 {
     const current_path = if (parsed.path) |p|
         try allocator.dupe(u8, p)
     else
-        try getCwd(allocator);
+        try getCwd(allocator, io);
 
 
     // Handle completion mode
@@ -140,7 +135,7 @@ pub fn main() !u8 {
                 try stderr.print("Error: --complete 2 requires first argument\n", .{});
                 return 3;
             };
-            const siblings = try completion.getSiblingCompletions(allocator, current_path, first_arg);
+            const siblings = try completion.getSiblingCompletions(allocator, io, current_path, first_arg);
 
             for (siblings) |s| {
                 try stdout.print("{s}\n", .{s});
@@ -165,7 +160,7 @@ pub fn main() !u8 {
         return 3;
     };
 
-    const result = path_mod.swapPath(allocator, current_path, old, new, .{
+    const result = path_mod.swapPath(allocator, io, current_path, old, new, .{
         .dry_run = parsed.dry_run,
     }) catch |err| {
         switch (err) {

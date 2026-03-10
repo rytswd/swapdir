@@ -1,5 +1,6 @@
 const std = @import("std");
 const fs = std.fs;
+const Io = std.Io;
 const mem = std.mem;
 const Allocator = mem.Allocator;
 
@@ -55,8 +56,8 @@ pub fn replaceAt(allocator: Allocator, path: []const u8, pos: usize, old_len: us
 }
 
 /// Check if a path exists on the filesystem
-pub fn pathExists(path: []const u8) bool {
-    fs.accessAbsolute(path, .{}) catch return false;
+pub fn pathExists(io: Io, path: []const u8) bool {
+    Io.Dir.accessAbsolute(io, path, .{}) catch return false;
     return true;
 }
 
@@ -64,6 +65,7 @@ pub fn pathExists(path: []const u8) bool {
 /// Returns the valid path(s) that exist on the filesystem.
 pub fn swapPath(
     allocator: Allocator,
+    io: Io,
     path: []const u8,
     old: []const u8,
     new: []const u8,
@@ -87,7 +89,7 @@ pub fn swapPath(
     for (positions) |pos| {
         const candidate = replaceAt(allocator, path, pos, old.len, new) catch continue;
 
-        if (options.dry_run or pathExists(candidate)) {
+        if (options.dry_run or pathExists(io, candidate)) {
             valid_paths.append(allocator, candidate) catch {
                 allocator.free(candidate);
                 continue;
@@ -183,19 +185,19 @@ test "replaceAt handles substring replacement" {
 
 test "swapPath returns NoMatchFound when old not in path" {
     const allocator = std.testing.allocator;
-    const result = swapPath(allocator, "/home/user/project", "frontend", "backend", .{ .dry_run = true });
+    const result = swapPath(allocator, std.testing.io, "/home/user/project", "frontend", "backend", .{ .dry_run = true });
     try std.testing.expectError(SwapError.NoMatchFound, result);
 }
 
 test "swapPath returns EmptySubstring for empty old" {
     const allocator = std.testing.allocator;
-    const result = swapPath(allocator, "/home/user/project", "", "backend", .{ .dry_run = true });
+    const result = swapPath(allocator, std.testing.io, "/home/user/project", "", "backend", .{ .dry_run = true });
     try std.testing.expectError(SwapError.EmptySubstring, result);
 }
 
 test "swapPath with dry_run returns path without validation" {
     const allocator = std.testing.allocator;
-    const result = try swapPath(allocator, "/home/user/frontend/src", "frontend", "backend", .{ .dry_run = true });
+    const result = try swapPath(allocator, std.testing.io, "/home/user/frontend/src", "frontend", "backend", .{ .dry_run = true });
     defer freeResult(allocator, result);
 
     switch (result) {
@@ -206,7 +208,7 @@ test "swapPath with dry_run returns path without validation" {
 
 test "swapPath with substring match" {
     const allocator = std.testing.allocator;
-    const result = try swapPath(allocator, "/home/user/frontend/src", "front", "back", .{ .dry_run = true });
+    const result = try swapPath(allocator, std.testing.io, "/home/user/frontend/src", "front", "back", .{ .dry_run = true });
     defer freeResult(allocator, result);
 
     switch (result) {

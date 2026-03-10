@@ -1,5 +1,5 @@
 const std = @import("std");
-const fs = std.fs;
+const Io = std.Io;
 const mem = std.mem;
 const Allocator = mem.Allocator;
 const path_mod = @import("path.zig");
@@ -48,6 +48,7 @@ fn findMatchingComponent(path: []const u8, needle: []const u8) ?struct { start: 
 /// Caller must free each completion and the slice.
 pub fn getSiblingCompletions(
     allocator: Allocator,
+    io: Io,
     current_path: []const u8,
     first_arg: []const u8,
 ) ![][]const u8 {
@@ -69,11 +70,11 @@ pub fn getSiblingCompletions(
     // Suffix (everything after the matched component)
     const suffix = current_path[match.end..];
 
-    var dir = fs.openDirAbsolute(parent_path, .{ .iterate = true }) catch return try completions.toOwnedSlice(allocator);
-    defer dir.close();
+    var dir = Io.Dir.openDirAbsolute(io, parent_path, .{ .iterate = true }) catch return try completions.toOwnedSlice(allocator);
+    defer dir.close(io);
 
     var iter = dir.iterate();
-    while (iter.next() catch null) |entry| {
+    while (iter.next(io) catch null) |entry| {
         if (entry.kind != .directory) continue;
 
         // Skip the current component
@@ -94,7 +95,7 @@ pub fn getSiblingCompletions(
         pos += entry.name.len;
         @memcpy(candidate[pos..][0..suffix.len], suffix);
 
-        if (path_mod.pathExists(candidate)) {
+        if (path_mod.pathExists(io, candidate)) {
             const name_copy = allocator.dupe(u8, entry.name) catch continue;
             completions.append(allocator, name_copy) catch {
                 allocator.free(name_copy);

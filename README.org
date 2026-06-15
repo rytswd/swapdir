@@ -18,11 +18,11 @@
 
 ** 🌄 Overview
 
-*swapdir* enables swapping a portion of the current working directory path with a replacement string, bringing the powerful ~cd old new~ functionality of ksh/zsh to all major shells (Bash, Fish, Nushell).
+*swapdir* enables swapping a portion of the current working directory path with a replacement string, bringing the powerful ~cd old new~ functionality of ksh/zsh to all major shells (Bash, Zsh, Fish, and Nushell).
 
 #+begin_example
 /tmp/frontend/src/components:
-❯ swapdir frontend backend
+❯ sd frontend backend
 
 /tmp/backend/src/components:
 ❯ 
@@ -46,22 +46,49 @@ While Zsh users might know this built-in feature, *swapdir* improves upon it wit
 
 *** 1. Install
 
-**** Using Nix (Flakes)
+**** Home Manager (recommended)
+
+The flake ships a Home Manager module that installs the binary *and* wires up the ~sd~ wrapper function and tab completions for you.
 
 #+begin_src nix
 {
   inputs.swapdir.url = "github:rytswd/swapdir";
 
-  outputs = { nixpkgs, swapdir, ... }: {
-    # Add to your system or home-manager packages
-    environment.systemPackages = [ swapdir.packages.x86_64-linux.default ];
-  };
+  # In your Home Manager configuration:
+  imports = [ inputs.swapdir.homeModules.swapdir ];
+  programs.swapdir.enable = true;
 }
 #+end_src
 
+Bash, Zsh, and Fish integration are enabled by default; Nushell is opt-in. Toggle any of them explicitly:
+
+#+begin_src nix
+programs.swapdir = {
+  enable = true;
+  enableBashIntegration = true;   # default: true
+  enableZshIntegration = true;    # default: true
+  enableFishIntegration = true;   # default: true
+  enableNushellIntegration = true; # default: false
+};
+#+end_src
+
+With the module enabled you can skip step 2 entirely.
+
+**** Nix package (without the module)
+
+Install just the binary (for example into ~environment.systemPackages~ or ~home.packages~), then set up the shell integration manually as shown in step 2:
+
+#+begin_src nix
+environment.systemPackages = [
+  inputs.swapdir.packages.x86_64-linux.swapdir
+];
+#+end_src
+
+The shell integration scripts ship inside the package at =$out/share/swapdir/= (e.g. =~/.nix-profile/share/swapdir/swapdir.bash=).
+
 **** Manual Build (Zig)
 
-Requirements: [[https://ziglang.org/][Zig]] 0.13+
+Requirements: [[https://ziglang.org/][Zig]] 0.17 (development/master — 0.17 is not yet released).
 
 #+begin_src bash
 git clone https://github.com/rytswd/swapdir
@@ -70,9 +97,13 @@ zig build -Doptimize=ReleaseSafe
 cp zig-out/bin/swapdir ~/.local/bin/
 #+end_src
 
+The shell integration scripts live under =shell/= in the repository.
+
 *** 2. Setup Shell Integration
 
-To use ~swapdir~ effectively, you need a shell wrapper function (usually aliased as ~sd~) that handles the directory change.
+/Skip this step if you used the Home Manager module — it does this for you./
+
+To use ~swapdir~ effectively you need a shell wrapper function (aliased as ~sd~) that captures the binary's output and runs ~cd~. Source the script for your shell from wherever it is installed — either the package's =share/swapdir/= directory or the repository's =shell/= directory.
 
 #+html:<details>
 #+html:<summary><strong>Bash</strong></summary>
@@ -80,9 +111,9 @@ To use ~swapdir~ effectively, you need a shell wrapper function (usually aliased
 Add to =~/.bashrc=:
 
 #+begin_src bash
-source <(swapdir --init bash)
-# Or manually source the provided script
-source /path/to/swapdir/shell/swapdir.bash
+source ~/.nix-profile/share/swapdir/swapdir.bash
+# Or, from a manual build / checkout:
+# source /path/to/swapdir/shell/swapdir.bash
 #+end_src
 
 #+html:</details>
@@ -93,9 +124,8 @@ source /path/to/swapdir/shell/swapdir.bash
 Add to =~/.zshrc=:
 
 #+begin_src zsh
-source <(swapdir --init zsh)
-# Or manually source the provided script
-source /path/to/swapdir/shell/swapdir.zsh
+source ~/.nix-profile/share/swapdir/swapdir.zsh
+# Or: source /path/to/swapdir/shell/swapdir.zsh
 #+end_src
 
 #+html:</details>
@@ -106,9 +136,8 @@ source /path/to/swapdir/shell/swapdir.zsh
 Add to =~/.config/fish/config.fish=:
 
 #+begin_src fish
-swapdir --init fish | source
-# Or manually source
-source /path/to/swapdir/shell/swapdir.fish
+source ~/.nix-profile/share/swapdir/swapdir.fish
+# Or: source /path/to/swapdir/shell/swapdir.fish
 #+end_src
 
 #+html:</details>
@@ -119,8 +148,25 @@ source /path/to/swapdir/shell/swapdir.fish
 Add to your config:
 
 #+begin_src nu
-source /path/to/swapdir/shell/swapdir.nu
+source ~/.nix-profile/share/swapdir/swapdir.nu
+# Or: source /path/to/swapdir/shell/swapdir.nu
 #+end_src
+
+External completions need an extra step in =config.nu= — see the comment block at the top of =swapdir.nu=.
+
+#+html:</details>
+
+#+html:<details>
+#+html:<summary><strong>POSIX sh</strong></summary>
+
+Add to your shell's rc file:
+
+#+begin_src sh
+. ~/.nix-profile/share/swapdir/swapdir.sh
+# Or: . /path/to/swapdir/shell/swapdir.sh
+#+end_src
+
+Note: completions are not available under POSIX sh.
 
 #+html:</details>
 
@@ -171,6 +217,25 @@ Select [1-2]:
 4. If ambiguous, the shell function presents the menu.
 
 
-** License
+** 🔨 Development
+
+The flake provides a dev shell with the pinned Zig toolchain.
+
+#+begin_src bash
+direnv allow      # or: nix develop
+zig build         # build the binary
+zig build test    # run unit tests
+zig build run -- frontend backend   # run with arguments
+#+end_src
+
+Zig comes from [[https://github.com/withre/zignix][=zignix=]], pinned to the latest =0.17= development build in =flake.lock=. Bump it with =nix flake update zignix=. To validate the package and checks the way CI does:
+
+#+begin_src bash
+nix flake check
+nix build .#swapdir
+#+end_src
+
+
+** 📄 License
 
 MIT

@@ -3,8 +3,10 @@ const Allocator = std.mem.Allocator;
 const Io = std.Io;
 const path_mod = @import("path.zig");
 const completion = @import("completion.zig");
+const build_info = @import("build_info");
 
-const version = "0.1.0";
+const version = build_info.version;
+const git_rev = build_info.git_rev;
 
 const Args = struct {
     old: ?[]const u8 = null,
@@ -110,7 +112,7 @@ pub fn main(init: std.process.Init) !u8 {
     }
 
     if (parsed.show_version) {
-        try stdout.print("swapdir {s}\n", .{version});
+        try stdout.print("swapdir {s} ({s})\n", .{ version, git_rev });
         return 0;
     }
 

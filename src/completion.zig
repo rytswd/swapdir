@@ -8,7 +8,7 @@ const path_mod = @import("path.zig");
 /// Used for first argument completion.
 /// Caller must free each component and the slice.
 pub fn getPathComponents(allocator: Allocator, path: []const u8) ![][]const u8 {
-    var components: std.ArrayListUnmanaged([]const u8) = .{};
+    var components: std.ArrayList([]const u8) = .empty;
     errdefer {
         for (components.items) |c| allocator.free(c);
         components.deinit(allocator);
@@ -52,7 +52,7 @@ pub fn getSiblingCompletions(
     current_path: []const u8,
     first_arg: []const u8,
 ) ![][]const u8 {
-    var completions: std.ArrayListUnmanaged([]const u8) = .{};
+    var completions: std.ArrayList([]const u8) = .empty;
     errdefer {
         for (completions.items) |c| allocator.free(c);
         completions.deinit(allocator);

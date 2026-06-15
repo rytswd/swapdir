@@ -23,7 +23,7 @@ pub fn findAllPositions(allocator: Allocator, haystack: []const u8, needle: []co
     if (needle.len == 0) return &[_]usize{};
     if (needle.len > haystack.len) return &[_]usize{};
 
-    var positions: std.ArrayListUnmanaged(usize) = .{};
+    var positions: std.ArrayList(usize) = .empty;
     errdefer positions.deinit(allocator);
 
     var i: usize = 0;
@@ -80,7 +80,7 @@ pub fn swapPath(
     if (positions.len == 0) return SwapError.NoMatchFound;
 
     // Generate candidate paths for each position
-    var valid_paths: std.ArrayListUnmanaged([]const u8) = .{};
+    var valid_paths: std.ArrayList([]const u8) = .empty;
     errdefer {
         for (valid_paths.items) |p| allocator.free(p);
         valid_paths.deinit(allocator);

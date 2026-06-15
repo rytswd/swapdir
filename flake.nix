@@ -5,8 +5,8 @@
     nixpkgs.url = "github:NixOS/nixpkgs?ref=nixos-unstable";
     blueprint.url = "github:numtide/blueprint";
     blueprint.inputs.nixpkgs.follows = "nixpkgs";
-    zig-overlay.url = "github:mitchellh/zig-overlay";
-    zig-overlay.inputs.nixpkgs.follows = "nixpkgs";
+    zignix.url = "github:withre/zignix";
+    zignix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs = inputs: inputs.blueprint { inherit inputs; prefix = "nix"; };

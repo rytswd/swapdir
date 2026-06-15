@@ -1,6 +1,6 @@
 { pkgs, inputs, system, flake, ... }:
 let
-  zig = inputs.zig-overlay.packages.${system}.master;
+  zig = inputs.zignix.packages.${system}.zig-master;
 in
 pkgs.stdenv.mkDerivation {
   pname = "swapdir-tests";

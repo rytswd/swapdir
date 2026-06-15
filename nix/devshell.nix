@@ -1,6 +1,6 @@
 { pkgs, inputs, system, ... }:
 let
-  zig = inputs.zig-overlay.packages.${system}.master;
+  zig = inputs.zignix.packages.${system}.zig-master;
 in
 pkgs.mkShell {
   packages = [

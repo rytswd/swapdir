@@ -235,6 +235,16 @@ nix flake check
 nix build .#swapdir
 #+end_src
 
+*** Binary cache
+
+Builds are published to [[https://app.cachix.org/cache/swapdir][Cachix]]. The cache is declared in the flake's =nixConfig=, so consumers are offered it automatically (accept the substituter prompt, or pass =--accept-flake-config=). To opt in manually:
+
+#+begin_src bash
+cachix use swapdir
+#+end_src
+
+CI pushes to the cache when a =CACHIX_AUTH_TOKEN= repository secret is present — create a write token at the cache page and add it under *Settings → Secrets and variables → Actions*. Publishing a GitHub release also builds the package for Linux and macOS, pushes those builds to the cache, and attaches the per-platform binaries to the release.
+
 
 ** 📄 License
 

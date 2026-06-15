@@ -1,6 +1,14 @@
 name: Release
 
+# Triggers, in order of reliability:
+#   - push of a version tag (v*)      -> primary; deterministic, fires the
+#     moment the tag is pushed, independent of GitHub's release plumbing.
+#   - release published               -> covers releases cut in the UI.
+#   - workflow_dispatch               -> manual runs (cache only, no upload).
 on:
+  push:
+    tags:
+      - 'v*'
   release:
     types: [published]
   workflow_dispatch:
@@ -22,14 +30,14 @@ jobs:
             system: aarch64-darwin
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: cachix/install-nix-action@v30
+      - uses: cachix/install-nix-action@v31
         with:
           extra_nix_config: |
             accept-flake-config = true
 
-      - uses: cachix/cachix-action@v15
+      - uses: cachix/cachix-action@v17
         with:
           name: swapdir
           # Built paths are pushed to the cache automatically when this
@@ -42,10 +50,15 @@ jobs:
       - name: Stage binary
         run: install -Dm755 result/bin/swapdir "swapdir-${{ matrix.system }}"
 
+      # Upload only when there is a tag to attach to (tag push or a
+      # published release); skipped for branch-based workflow_dispatch runs.
+      # action-gh-release creates the release for the tag if it doesn't
+      # exist yet, and appends each platform's binary to it otherwise.
       - name: Attach binary to release
-        if: github.event_name == 'release'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release upload "${{ github.event.release.tag_name }}" \
-            "swapdir-${{ matrix.system }}" --clobber
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.ref_name }}
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: swapdir-${{ matrix.system }}
+          fail_on_unmatched_files: true

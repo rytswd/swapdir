@@ -24,11 +24,10 @@ jobs:
         include:
           - runner: ubuntu-latest
             system: x86_64-linux
-          - runner: macos-13
-            system: x86_64-darwin
           - runner: macos-14
             system: aarch64-darwin
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
 
@@ -48,7 +47,9 @@ jobs:
         run: nix build .#swapdir --print-build-logs
 
       - name: Stage binary
-        run: install -Dm755 result/bin/swapdir "swapdir-${{ matrix.system }}"
+        # `install -m` works on both GNU (Linux) and BSD (macOS) install;
+        # avoid `-D`, which is a GNU-only extension absent on macOS.
+        run: install -m755 result/bin/swapdir "swapdir-${{ matrix.system }}"
 
       # Upload only when there is a tag to attach to (tag push or a
       # published release); skipped for branch-based workflow_dispatch runs.
